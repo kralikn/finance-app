@@ -54,6 +54,8 @@ FRONTEND_URL=http://localhost:3000
 - **Backend API:** http://localhost:8000
 - **API Docs:** http://localhost:8000/docs
 - **Categories API:** http://localhost:8000/api/categories
+- **Upload API:** http://localhost:8000/api/upload
+
 
 ## 🗄️ Database Schema
 
@@ -108,6 +110,21 @@ FRONTEND_URL=http://localhost:3000
 - **Cross-type védelem:** Income kategóriát nem lehet expense-re reassignolni
 
 
+### ✅ File Upload API (.xlsx feldolgozás)
+- **POST /api/upload/xlsx** - Excel fájl feltöltése és validálása
+- **Támogatott formátumok:** .xlsx, .xls (max 10MB)
+- **Banki tranzakció oszlopok:** 12 kötelező oszlop validálása
+- **Automatikus adattisztítás:** Üres sorok eltávolítása, típus normalizálás
+
+#### File Upload API funkciók:
+- **Oszlop validálás:** 12 kötelező banki oszlop ellenőrzése
+- **Adattípus validálás:** Összeg (numerikus), Pénznem (3 karakter), Irány (Bejövő/Kimenő)
+- **Kötelező mezők:** Tranzakció dátuma, Összeg, Irány, Pénznem kitöltöttség
+- **Statisztikák:** Dátum tartomány, összeg elemzés, pénznem/irány eloszlás
+- **Hibajelentés:** Részletes validációs hibák és figyelmeztetések
+- **JSON kompatibilitás:** Pandas/numpy típusok biztonságos konverziója
+
+
 ### ✅ Database
 - Azure SQL Database kapcsolat
 - SQLAlchemy modellek (CategoryKeyword, Category, Transaction)
@@ -129,7 +146,7 @@ FRONTEND_URL=http://localhost:3000
 - [x] SQLAlchemy modellek (CategoryKeyword, Category, Transaction)
 - [x] Categories CRUD API
 - [x] Default kategóriák seedelése
-- [ ] File upload funkció (.xlsx parsing)
+- [x] File upload funkció (.xlsx parsing)
 - [ ] Transaction CRUD API
 - [ ] Frontend transaction management
 - [ ] Adatvizualizáció (Charts)
@@ -137,15 +154,17 @@ FRONTEND_URL=http://localhost:3000
 
 ## 📝 Next Steps
 
-1. **Excel File Upload** - Banki tranzakciók feltöltése
-2. **Transaction Management** - CRUD műveletek
-3. **Frontend Integration** - Categories dropdown
-4. **Data Visualization** - Charts és grafikonok
-5. **AI Analysis** - Költési szokások elemzése
+1. **Transaction Management** - CRUD műveletek
+2. **Frontend Integration** - Categories dropdown
+3. **Data Visualization** - Charts és grafikonok
+4. **AI Analysis** - Költési szokások elemzése
 
 ---
 
-🔧 **Sprint 2 Complete** - Database és Categories API kész  
-📈 **Next Sprint** - File Upload és Transaction Management
+🔧 **Sprint 4 Complete** - File Upload és validáció kész 
+📈 **Next Sprint** 
+1. **Transaction Database API** - Validált tranzakciók adatbázisba mentése
+2. **Auto-kategorization** - Keywords alapú automatikus kategorizálás
+
 
 🔧 **Work in Progress** - MVP fejlesztés alatt

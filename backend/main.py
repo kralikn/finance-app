@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
 from app.routers import categories
+from app.routers import upload
 
 load_dotenv()
 
@@ -24,6 +25,7 @@ app.add_middleware(
 )
 
 app.include_router(categories.router, prefix="/api")
+app.include_router(upload.router, prefix="/api")
 
 
 @app.get("/")
