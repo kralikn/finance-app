@@ -65,10 +65,17 @@ FRONTEND_URL=http://localhost:3000
 - created_at (Létrehozás dátuma)
 ```
 
+### Category Keywords Table (Junction Table)
+```sql
+- id (Primary Key)
+- category_id (FK -> categories.id, Indexed)
+- keyword (Unicode kulcsszó automatikus matching-hez, Indexed)
+```
+
 ### Transactions Table
 ```sql
 - id (Primary Key)
-- transaction_date (Tranzakció dátuma)
+- transaction_date (Tranzakció dátuma, Indexed)
 - booking_date (Könyvelés dátuma)
 - transaction_type (Típus)
 - direction ('Bejövő' vagy 'Kimenő')
@@ -78,21 +85,32 @@ FRONTEND_URL=http://localhost:3000
 - description (Közlemény)
 - account_name (Számla név)
 - account_number (Számla szám)
-- amount (Összeg)
+- amount (Összeg, Numeric(15,2), Indexed)
 - currency (Pénznem, default: HUF)
-- category_id (FK -> categories.id)
+- category_id (FK -> categories.id, Indexed)
 - created_at, updated_at (Timestamps)
 ```
+
 ## 🔧 Implementált Funkciók
 
-### ✅ Categories API
-- **GET /api/categories** - Összes kategória lekérése
-- **POST /api/categories** - Új kategória létrehozása
-- Default kategóriák: Fizetés, Élelmiszer, Lakhatás, stb.
+### ✅ Categories API (Teljes CRUD)
+- **GET /api/categories** - Összes kategória lekérése (type és name szerint rendezve)
+- **GET /api/categories/{id}** - Egy kategória lekérése ID alapján
+- **POST /api/categories** - Új kategória létrehozása (keywords támogatással)
+- **PUT /api/categories/{id}** - Kategória módosítása (név, típus, keywords)
+- **DELETE /api/categories/{id}** - Kategória törlése (reassign_to paraméterrel)
+
+#### Categories API Funkciók:
+- **Duplikáció védelem:** Név + típus kombináció egyediségének biztosítása
+- **Cascade törlés:** Keywords automatikus törlése kategória törlésekor
+- **Tranzakció reassign:** Kategória törlésekor tranzakciók átállítása másik kategóriára
+- **Típus validáció:** Csak 'income' és 'expense' típusok engedélyezettek
+- **Cross-type védelem:** Income kategóriát nem lehet expense-re reassignolni
+
 
 ### ✅ Database
 - Azure SQL Database kapcsolat
-- SQLAlchemy modellek (Category, Transaction)
+- SQLAlchemy modellek (CategoryKeyword, Category, Transaction)
 - Relationship-ek Foreign Key-ekkel
 - Auto-generated timestamps
 
@@ -108,7 +126,7 @@ FRONTEND_URL=http://localhost:3000
 - [x] Projekt setup és Git repository
 - [x] Backend-Frontend kommunikáció
 - [x] Azure SQL Database kapcsolat
-- [x] SQLAlchemy modellek (Category, Transaction)
+- [x] SQLAlchemy modellek (CategoryKeyword, Category, Transaction)
 - [x] Categories CRUD API
 - [x] Default kategóriák seedelése
 - [ ] File upload funkció (.xlsx parsing)
