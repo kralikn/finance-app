@@ -113,16 +113,13 @@ FRONTEND_URL=http://localhost:3000
 ### ✅ File Upload API (.xlsx feldolgozás)
 - **POST /api/upload/xlsx** - Excel fájl feltöltése és validálása
 - **Támogatott formátumok:** .xlsx, .xls (max 10MB)
-- **Banki tranzakció oszlopok:** 12 kötelező oszlop validálása
 - **Automatikus adattisztítás:** Üres sorok eltávolítása, típus normalizálás
-
-#### File Upload API funkciók:
 - **Oszlop validálás:** 12 kötelező banki oszlop ellenőrzése
 - **Adattípus validálás:** Összeg (numerikus), Pénznem (3 karakter), Irány (Bejövő/Kimenő)
 - **Kötelező mezők:** Tranzakció dátuma, Összeg, Irány, Pénznem kitöltöttség
-- **Statisztikák:** Dátum tartomány, összeg elemzés, pénznem/irány eloszlás
+- **Auto-kategorizálás:** Partner neve alapján keywords matching
+- **Duplikáció ellenőrzés:** Meglévő tranzakciókkal összehasonlítás
 - **Hibajelentés:** Részletes validációs hibák és figyelmeztetések
-- **JSON kompatibilitás:** Pandas/numpy típusok biztonságos konverziója
 
 
 ### ✅ Database
@@ -146,7 +143,10 @@ FRONTEND_URL=http://localhost:3000
 - [x] SQLAlchemy modellek (CategoryKeyword, Category, Transaction)
 - [x] Categories CRUD API
 - [x] Default kategóriák seedelése
-- [x] File upload funkció (.xlsx parsing)
+- [x] **File upload funkció (.xlsx parsing)**
+- [x] **Upload API validációs rendszer**
+- [x] **Auto-kategorizálás** - Keywords alapú automatikus kategorizálás
+- [x] **Duplikáció ellenőrzés** - Meglévő tranzakciók felismerése
 - [ ] Transaction CRUD API
 - [ ] Frontend transaction management
 - [ ] Adatvizualizáció (Charts)
@@ -161,10 +161,8 @@ FRONTEND_URL=http://localhost:3000
 
 ---
 
-🔧 **Sprint 4 Complete** - File Upload és validáció kész 
-📈 **Next Sprint** 
-1. **Transaction Database API** - Validált tranzakciók adatbázisba mentése
-2. **Auto-kategorization** - Keywords alapú automatikus kategorizálás
+🔧 **Sprint 5 Complete** - Auto-kategorizálás és duplikáció ellenőrzés kész  
+📈 **Next Sprint** - Bulk Transaction Save API és Frontend integráció
 
 
 🔧 **Work in Progress** - MVP fejlesztés alatt

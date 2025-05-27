@@ -1,8 +1,11 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 import pandas as pd
 import io
 from datetime import datetime
 from typing import List, Dict, Any
+from app.database.models import Category, CategoryKeyword, Transaction
+from sqlalchemy.orm import Session
+from app.database.database import get_db
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 
@@ -117,7 +120,7 @@ class TransactionFileValidator:
 
 
 @router.post("/")
-async def upload_xlsx_file(file: UploadFile = File(...)):
+async def upload_xlsx_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """
     Excel fájl feltöltése és adatok kinyerése
     """
@@ -152,6 +155,7 @@ async def upload_xlsx_file(file: UploadFile = File(...)):
         # Oszlopok validálása
         column_errors = TransactionFileValidator.validate_columns(df)
         validation_errors.extend(column_errors)
+
         # Ha alapvető oszlopstruktúra hibás, itt megállunk
         if validation_errors:
             raise HTTPException(
@@ -160,6 +164,8 @@ async def upload_xlsx_file(file: UploadFile = File(...)):
                     "message": "Fájlstruktúra hibás",
                     "errors": validation_errors,
                     "available_columns": [str(col) for col in df.columns],
+                    "suggested_category": None,
+                    "is_duplicate": False,
                 },
             )
 
@@ -171,85 +177,16 @@ async def upload_xlsx_file(file: UploadFile = File(...)):
         required_data_errors = TransactionFileValidator.validate_required_data(df)
         validation_errors.extend(required_data_errors)
 
-        # 7. Alapvető statisztikák
-        stats = {
-            "total_transactions": int(len(df)),
-            "date_range": {
-                "earliest": (
-                    str(df["Tranzakció dátuma"].min())
-                    if not df["Tranzakció dátuma"].isna().all()
-                    else None
-                ),
-                "latest": (
-                    str(df["Tranzakció dátuma"].max())
-                    if not df["Tranzakció dátuma"].isna().all()
-                    else None
-                ),
-            },
-            "amount_summary": {
-                "total": (
-                    float(df["Összeg"].sum())
-                    if "Összeg" in df.columns and not df["Összeg"].isna().all()
-                    else 0
-                ),
-                "positive_count": (
-                    int((df["Összeg"] > 0).sum()) if "Összeg" in df.columns else 0
-                ),
-                "negative_count": (
-                    int((df["Összeg"] < 0).sum()) if "Összeg" in df.columns else 0
-                ),
-                "min_amount": (
-                    float(df["Összeg"].min())
-                    if "Összeg" in df.columns and not df["Összeg"].isna().all()
-                    else 0
-                ),
-                "max_amount": (
-                    float(df["Összeg"].max())
-                    if "Összeg" in df.columns and not df["Összeg"].isna().all()
-                    else 0
-                ),
-            },
-            "currencies": (
-                {str(k): int(v) for k, v in df["Pénznem"].value_counts().items()}
-                if "Pénznem" in df.columns
-                else {}
-            ),
-            "directions": (
-                {str(k): int(v) for k, v in df["Bejövő/Kimenő"].value_counts().items()}
-                if "Bejövő/Kimenő" in df.columns
-                else {}
-            ),
-        }
+        # 7. Auto-kategorizálás és duplikáció ellenőrzés
+        transactions_data = await process_transactions(df, db)
 
-        # 8. Alapvető adatok kinyerése
-        file_info = {
-            "filename": file.filename,
-            "file_size_mb": round(file.size / (1024 * 1024), 2),
-            "rows_count": int(len(df)),
-            "columns_count": int(len(df.columns)),
-            "columns": [str(col) for col in df.columns],
-            "first_3_rows": df.head(3).fillna("").to_dict("records"),
-            "data_types": {str(k): str(v) for k, v in df.dtypes.items()},
-            "empty_rows_removed": int(
-                pd.read_excel(io.BytesIO(file_content), engine="openpyxl")
-                .isnull()
-                .all(axis=1)
-                .sum()
-            ),
-            "has_data": not df.empty,
-        }
-
-        # 9. Válasz összeállítása
+        # 8. Válasz összeállítása
         response = {
-            "success": len(validation_errors) == 0,
-            "message": f"Fájl feldolgozva: {len(validation_errors)} hiba, {len(validation_warnings)} figyelmeztetés",
-            "file_info": file_info,
-            "statistics": stats,
-            "validation": {
-                "errors": validation_errors,
-                "warnings": validation_warnings,
-                "is_valid": len(validation_errors) == 0,
-            },
+            "success": True,
+            "message": f"Fájl feldolgozva: {len(df)} tranzakció, {transactions_data['duplicates']['count']} duplikátum",
+            "transactions": transactions_data["transactions"],
+            "duplicates": transactions_data["duplicates"],
+            "validation": {"warnings": validation_warnings, "is_valid": True},
         }
 
         return response
@@ -264,3 +201,137 @@ async def upload_xlsx_file(file: UploadFile = File(...)):
     finally:
         # 10. Fájl stream bezárása
         await file.close()
+
+
+async def process_transactions(df: pd.DataFrame, db: Session) -> Dict:
+    """
+    Tranzakciók feldolgozása: kategorizálás + duplikáció ellenőrzés
+    """
+
+    # 1. Kategorizálás
+    transactions = await categorize_transactions(df, db)
+
+    # 2. Duplikáció ellenőrzés
+    duplicates = await check_duplicates(transactions, db)
+
+    return {"transactions": transactions, "duplicates": duplicates}
+
+
+async def categorize_transactions(df: pd.DataFrame, db: Session) -> List[Dict]:
+    """
+    Tranzakciók kategorizálása Partner neve alapján keywords matching-gel
+    """
+
+    # Összes kategória és kulcsszavak lekérése
+    categories_with_keywords = db.query(Category).join(CategoryKeyword).all()
+
+    # Keywords map építése (kulcsszó -> kategória)
+    keyword_to_category = {}
+    for category in categories_with_keywords:
+        for keyword_obj in category.keywords:
+            keyword_to_category[keyword_obj.keyword.upper()] = {
+                "id": category.id,
+                "name": category.name,
+                "type": category.type,
+            }
+
+    transactions = []
+
+    for index, row in df.iterrows():
+        # Alapvető tranzakció adatok
+        transaction = {
+            "row_number": index + 1,
+            "transaction_date": str(row["Tranzakció dátuma"]),
+            "booking_date": (
+                str(row["Könyvelés dátuma"])
+                if pd.notna(row["Könyvelés dátuma"])
+                else None
+            ),
+            "transaction_type": str(row["Típus"]) if pd.notna(row["Típus"]) else "",
+            "direction": (
+                str(row["Bejövő/Kimenő"]) if pd.notna(row["Bejövő/Kimenő"]) else ""
+            ),
+            "partner_name": (
+                str(row["Partner neve"]) if pd.notna(row["Partner neve"]) else ""
+            ),
+            "partner_account": (
+                str(row["Partner számlaszáma/azonosítója"])
+                if pd.notna(row["Partner számlaszáma/azonosítója"])
+                else ""
+            ),
+            "expense_category": (
+                str(row["Költési kategória"])
+                if pd.notna(row["Költési kategória"])
+                else ""
+            ),
+            "description": str(row["Közlemény"]) if pd.notna(row["Közlemény"]) else "",
+            "account_name": (
+                str(row["Számla név"]) if pd.notna(row["Számla név"]) else ""
+            ),
+            "account_number": (
+                str(row["Számla szám"]) if pd.notna(row["Számla szám"]) else ""
+            ),
+            "amount": float(row["Összeg"]) if pd.notna(row["Összeg"]) else 0.0,
+            "currency": str(row["Pénznem"]) if pd.notna(row["Pénznem"]) else "HUF",
+            "suggested_category": None,
+        }
+
+        # Kategória keresés Partner neve alapján
+        partner_name = transaction["partner_name"].upper()
+
+        if partner_name:
+            # Kulcsszó keresés a partner névben
+            found_category = None
+            for keyword, category_info in keyword_to_category.items():
+                if keyword in partner_name:
+                    found_category = category_info
+                    break
+
+            if found_category:
+                transaction["suggested_category"] = found_category
+
+        transactions.append(transaction)
+
+    return transactions
+
+
+async def check_duplicates(transactions: List[Dict], db: Session) -> Dict:
+    """
+    Duplikáció ellenőrzés meglévő tranzakciók alapján
+    Matching: transaction_date + amount + partner_name
+    """
+
+    duplicate_info = {"count": 0, "transactions": []}
+
+    for transaction in transactions:
+        # Duplikáció keresés az adatbázisban
+        existing_transaction = (
+            db.query(Transaction)
+            .filter(
+                Transaction.transaction_date == transaction["transaction_date"],
+                Transaction.amount == transaction["amount"],
+                Transaction.partner_name == transaction["partner_name"],
+            )
+            .first()
+        )
+
+        if existing_transaction:
+            duplicate_info["count"] += 1
+            duplicate_info["transactions"].append(
+                {
+                    "row_number": transaction["row_number"],
+                    "partner_name": transaction["partner_name"],
+                    "amount": transaction["amount"],
+                    "transaction_date": transaction["transaction_date"],
+                    "existing_id": existing_transaction.id,
+                    "is_duplicate": True,
+                }
+            )
+
+            # Eredeti tranzakcióhoz is jelöljük
+            transaction["is_duplicate"] = True
+            transaction["existing_transaction_id"] = existing_transaction.id
+        else:
+            transaction["is_duplicate"] = False
+
+    return duplicate_info
