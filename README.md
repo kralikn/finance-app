@@ -54,7 +54,10 @@ FRONTEND_URL=http://localhost:3000
 - **Backend API:** http://localhost:8000
 - **API Docs:** http://localhost:8000/docs
 - **Categories API:** http://localhost:8000/api/categories
+- **Category Keywords API:** http://localhost:8000/api/category-keywords
+- **Transactions API:** http://localhost:8000/api/transactions
 - **Upload API:** http://localhost:8000/api/upload
+
 
 
 ## 🗄️ Database Schema
@@ -110,6 +113,36 @@ FRONTEND_URL=http://localhost:3000
 - **Cross-type védelem:** Income kategóriát nem lehet expense-re reassignolni
 
 
+### ✅ Category Keywords API (CRUD)
+- **GET /api/category-keywords** - Összes kulcsszó lekérése (pagination-nel)
+- **GET /api/category-keywords/{id}** - Egy kulcsszó lekérése ID alapján
+- **POST /api/category-keywords** - Új kulcsszó létrehozása kategóriához
+- **PUT /api/category-keywords/{id}** - Kulcsszó módosítása
+- **DELETE /api/category-keywords/{id}** - Kulcsszó törlése
+- **DELETE /api/category-keywords/category/{id}** - Egy kategória összes kulcsszavának törlése
+
+#### Category Keywords API Funkciók:
+- **MVP optimalizáció:** Minimális validálás, egyszerű paraméter átadás
+- **MSSQL kompatibilitás:** ORDER BY automatikus hozzáadása pagination-höz
+- **Duplikáció védelem:** Ugyanaz a kulcsszó nem lehet kétszer egy kategóriánál
+
+### ✅ Transactions API (Teljes CRUD)
+- **GET /api/transactions** - Összes tranzakció lekérése (dátum szerint rendezve, pagination)
+- **GET /api/transactions/{id}** - Egy tranzakció lekérése ID alapján
+- **POST /api/transactions** - Új tranzakció létrehozása
+- **POST /api/transactions/bulk** - Több tranzakció egyszerre (upload integráció)
+- **PUT /api/transactions/{id}** - Tranzakció módosítása (főleg kategória beállítás)
+- **PUT /api/transactions/bulk/category** - Több tranzakció kategóriájának beállítása
+- **DELETE /api/transactions/{id}** - Tranzakció törlése
+- **GET /api/transactions/uncategorized** - Kategória nélküli tranzakciók
+
+#### Transactions API Funkciók:
+- **Upload integráció:** Bulk endpoint az upload workflow-hoz optimalizálva
+- **Duplikáció kezelés:** Automatikusan kihagyja a duplikált tranzakciókat
+- **Auto-kategorizálás:** Upload-ból jövő suggested_category automatikus alkalmazása
+- **Bulk műveletek:** Hatékony tömeges kategória beállítás
+- **MVP optimalizáció:** Minimális validálás, gyors fejlesztéshez
+
 ### ✅ File Upload API (.xlsx feldolgozás)
 - **POST /api/upload/xlsx** - Excel fájl feltöltése és validálása
 - **Támogatott formátumok:** .xlsx, .xls (max 10MB)
@@ -142,27 +175,29 @@ FRONTEND_URL=http://localhost:3000
 - [x] Azure SQL Database kapcsolat
 - [x] SQLAlchemy modellek (CategoryKeyword, Category, Transaction)
 - [x] Categories CRUD API
+- [x] **Category Keywords CRUD API**
 - [x] Default kategóriák seedelése
 - [x] **File upload funkció (.xlsx parsing)**
 - [x] **Upload API validációs rendszer**
 - [x] **Auto-kategorizálás** - Keywords alapú automatikus kategorizálás
 - [x] **Duplikáció ellenőrzés** - Meglévő tranzakciók felismerése
-- [ ] Transaction CRUD API
+- [x] **Transaction CRUD API** - Teljes CRUD + bulk műveletek
+- [x] **Upload-Transaction integráció** - Seamless workflow
 - [ ] Frontend transaction management
 - [ ] Adatvizualizáció (Charts)
 - [ ] AI elemzési funkciók
 
+
 ## 📝 Next Steps
 
-1. **Transaction Management** - CRUD műveletek
-2. **Frontend Integration** - Categories dropdown
+1. **Frontend Integration** - Transaction management UI
+2. **Categories dropdown** - Frontend kategória választó
 3. **Data Visualization** - Charts és grafikonok
 4. **AI Analysis** - Költési szokások elemzése
 
 ---
 
-🔧 **Sprint 5 Complete** - Auto-kategorizálás és duplikáció ellenőrzés kész  
-📈 **Next Sprint** - Bulk Transaction Save API és Frontend integráció
-
+🔧 **Sprint 6 Complete** - Transaction API és Category Keywords API kész  
+📈 **Next Sprint** - Frontend integration és Transaction management UI
 
 🔧 **Work in Progress** - MVP fejlesztés alatt
